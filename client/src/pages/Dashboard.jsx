@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import ClaimCard from '../components/ClaimCard'
 import StatsBar from '../components/StatsBar'
 import SearchBar from '../components/SearchBar'
 import { claimTypes } from '../data/formFields'
+
+const PAGE_SIZE = 30
 
 const typeFilters = [
   { key: 'all', label: 'הכל' },
@@ -12,25 +14,60 @@ const typeFilters = [
 
 export default function Dashboard() {
   const [claims, setClaims] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [searchResults, setSearchResults] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    if (searchResults) return // Don't fetch when search filter is active
-    const url = filter === 'all' ? '/api/claims' : `/api/claims?type=${filter}`
-    setLoading(true)
+  const fetchClaims = useCallback((pageNum, append = false) => {
+    const typeParam = filter !== 'all' ? `&type=${filter}` : ''
+    const url = `/api/claims?page=${pageNum}&limit=${PAGE_SIZE}${typeParam}`
+
+    if (append) setLoadingMore(true)
+    else setLoading(true)
+
     fetch(url)
       .then(res => res.json())
-      .then(data => setClaims(data))
-      .catch(() => setClaims([]))
-      .finally(() => setLoading(false))
-  }, [filter, searchResults])
+      .then(data => {
+        if (append) {
+          setClaims(prev => [...prev, ...data.claims])
+        } else {
+          setClaims(data.claims)
+        }
+        setTotal(data.total)
+        setPage(pageNum)
+      })
+      .catch(() => { if (!append) setClaims([]); })
+      .finally(() => {
+        setLoading(false)
+        setLoadingMore(false)
+      })
+  }, [filter])
+
+  // Reset and fetch page 1 when filter changes
+  useEffect(() => {
+    if (searchResults) return
+    fetchClaims(1, false)
+  }, [filter, searchResults, fetchClaims])
+
+  const handleLoadMore = () => {
+    fetchClaims(page + 1, true)
+  }
+
+  const handleFilterChange = (key) => {
+    if (searchResults) {
+      // If search is active, apply type filter client-side
+      setFilter(key)
+      return
+    }
+    setFilter(key)
+  }
 
   const handleFilterResults = (results, query) => {
     if (results === null) {
-      // Clear search filter
       setSearchResults(null)
       setSearchQuery('')
     } else {
@@ -46,6 +83,13 @@ export default function Dashboard() {
     ? displayClaims.filter(c => c.type === filter)
     : displayClaims
 
+  const hasMore = searchResults === null && claims.length < total
+
+  // Count to display
+  const displayTotal = searchResults !== null
+    ? filteredClaims.length
+    : total
+
   return (
     <div>
       <StatsBar />
@@ -55,14 +99,19 @@ export default function Dashboard() {
         <h2 className="text-xl font-bold text-slate-900">
           {searchResults !== null ? 'תוצאות חיפוש' : 'רשימת תביעות'}
         </h2>
-        <span className="text-sm text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">{filteredClaims.length} תביעות</span>
+        <span className="text-sm text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">
+          {searchResults === null && claims.length < total
+            ? `${claims.length} מתוך ${total} תביעות`
+            : `${displayTotal} תביעות`
+          }
+        </span>
       </div>
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {typeFilters.map(f => (
           <button
             key={f.key}
-            onClick={() => setFilter(f.key)}
+            onClick={() => handleFilterChange(f.key)}
             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
               filter === f.key
                 ? 'bg-blue-900 text-white shadow-lg shadow-blue-900/20'
@@ -102,11 +151,34 @@ export default function Dashboard() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredClaims.map(claim => (
-            <ClaimCard key={claim._id} claim={claim} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredClaims.map(claim => (
+              <ClaimCard key={claim._id} claim={claim} />
+            ))}
+          </div>
+
+          {hasMore && (
+            <div className="text-center mt-8">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 bg-white text-slate-700 border border-slate-200 px-8 py-3 rounded-xl font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50"
+              >
+                {loadingMore ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                    טוען...
+                  </>
+                ) : (
+                  <>
+                    טען עוד ({total - claims.length} נותרו)
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

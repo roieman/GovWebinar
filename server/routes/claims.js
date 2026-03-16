@@ -73,13 +73,21 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// GET all claims (optional ?type= filter)
+// GET all claims (paginated, optional ?type= filter)
 router.get('/', async (req, res) => {
   try {
     const filter = {};
     if (req.query.type) filter.type = req.query.type;
-    const claims = await Claim.find(filter).sort({ createdAt: -1 });
-    res.json(claims);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 30);
+    const skip = (page - 1) * limit;
+
+    const [claims, total] = await Promise.all([
+      Claim.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Claim.countDocuments(filter)
+    ]);
+
+    res.json({ claims, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
