@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const claimsRouter = require('./routes/claims');
+const streetsRouter = require('./routes/streets');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.use('/api/claims', claimsRouter);
+app.use('/api/streets', streetsRouter);
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {

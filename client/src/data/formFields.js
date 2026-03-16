@@ -1,5 +1,5 @@
 import {
-  israeliCities, carMakes, insuranceCompanies,
+  carMakes, carModels, insuranceCompanies,
   medicalInstitutions, businessTypes, roomsOptions, injuryTypes
 } from './hebrewOptions'
 
@@ -9,8 +9,9 @@ export const claimTypes = {
     icon: '🏠',
     color: 'blue',
     fields: [
-      { name: 'city', label: 'עיר', type: 'searchable', required: true, options: israeliCities },
-      { name: 'street', label: 'רחוב ומספר', type: 'text', required: true },
+      { name: 'city', label: 'עיר', type: 'city', required: true },
+      { name: 'street', label: 'רחוב', type: 'street', required: true, cityField: 'city' },
+      { name: 'houseNumber', label: 'מספר בית', type: 'text', required: false },
       { name: 'damageDescription', label: 'תיאור הנזק', type: 'textarea', required: true },
       { name: 'estimatedCost', label: 'עלות משוערת (₪)', type: 'number', required: true },
       { name: 'roomsAffected', label: 'מספר חדרים שנפגעו', type: 'select', required: false, options: roomsOptions },
@@ -24,8 +25,9 @@ export const claimTypes = {
     fields: [
       { name: 'businessName', label: 'שם העסק', type: 'text', required: true },
       { name: 'businessId', label: 'ח.פ / עוסק מורשה', type: 'text', required: true },
-      { name: 'city', label: 'עיר', type: 'searchable', required: true, options: israeliCities },
-      { name: 'street', label: 'רחוב ומספר', type: 'text', required: true },
+      { name: 'city', label: 'עיר', type: 'city', required: true },
+      { name: 'street', label: 'רחוב', type: 'street', required: true, cityField: 'city' },
+      { name: 'houseNumber', label: 'מספר', type: 'text', required: false },
       { name: 'businessType', label: 'סוג העסק', type: 'searchable', required: true, options: businessTypes },
       { name: 'damageDescription', label: 'תיאור הנזק', type: 'textarea', required: true },
       { name: 'estimatedLoss', label: 'הפסד משוער (₪)', type: 'number', required: true },
@@ -38,7 +40,7 @@ export const claimTypes = {
     fields: [
       { name: 'licensePlate', label: 'מספר רישוי', type: 'text', required: true },
       { name: 'carMake', label: 'יצרן', type: 'searchable', required: true, options: carMakes },
-      { name: 'carModel', label: 'דגם', type: 'text', required: true },
+      { name: 'carModel', label: 'דגם', type: 'dependentSearchable', required: true, parentField: 'carMake', optionsMap: carModels },
       { name: 'carYear', label: 'שנת ייצור', type: 'select', required: false, options: Array.from({ length: 30 }, (_, i) => String(2026 - i)) },
       { name: 'damageDescription', label: 'תיאור הנזק', type: 'textarea', required: true },
       { name: 'estimatedRepairCost', label: 'עלות תיקון משוערת (₪)', type: 'number', required: true },
@@ -65,7 +67,7 @@ export const commonFields = [
   { name: 'idNumber', label: 'תעודת זהות', type: 'text', required: true },
   { name: 'phone', label: 'טלפון', type: 'tel', required: true },
   { name: 'email', label: 'דוא"ל', type: 'email', required: false },
-  { name: 'city', label: 'עיר מגורים', type: 'searchable', required: true, options: israeliCities },
+  { name: 'city', label: 'עיר מגורים', type: 'city', required: true },
 ];
 
 export const statusLabels = {

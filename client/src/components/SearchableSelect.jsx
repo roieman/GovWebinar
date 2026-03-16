@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-export default function SearchableSelect({ options, value, onChange, placeholder = 'בחר...', required }) {
+export default function SearchableSelect({ options, value, onChange, placeholder = 'בחר...', required, disabled }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef(null)
@@ -26,8 +26,8 @@ export default function SearchableSelect({ options, value, onChange, placeholder
   return (
     <div className="relative" ref={ref}>
       <div
-        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white cursor-pointer flex items-center justify-between focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all"
-        onClick={() => setOpen(!open)}
+        className={`w-full px-4 py-2.5 border border-slate-300 rounded-lg flex items-center justify-between transition-all ${disabled ? 'bg-slate-100 cursor-not-allowed opacity-60' : 'bg-white cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500'}`}
+        onClick={() => !disabled && setOpen(!open)}
       >
         {open ? (
           <input

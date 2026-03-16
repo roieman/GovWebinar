@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { claimTypes, commonFields } from '../data/formFields'
 import SearchableSelect from './SearchableSelect'
@@ -18,9 +18,54 @@ export default function ClaimForm({ type, initialData, claimId }) {
   const [submitting, setSubmitting] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const [previews, setPreviews] = useState([])
+  const [cities, setCities] = useState([])
+  const [streetsByCity, setStreetsByCity] = useState({})
+
+  useEffect(() => {
+    fetch('/api/streets/cities').then(r => r.json()).then(setCities).catch(() => {})
+  }, [])
+
+  // Pre-load streets for cities already set in initial data (edit mode)
+  useEffect(() => {
+    if (!initialData) return
+    const allFields = [...commonFields, ...typeConfig.fields]
+    const cityFields = allFields.filter(f => f.type === 'city')
+    cityFields.forEach(f => {
+      const cityVal = formData[f.name]
+      if (cityVal && !streetsByCity[cityVal]) {
+        fetch(`/api/streets?city=${encodeURIComponent(cityVal)}`)
+          .then(r => r.json())
+          .then(streets => setStreetsByCity(prev => ({ ...prev, [cityVal]: streets })))
+          .catch(() => {})
+      }
+    })
+  }, [initialData])
 
   const handleChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => {
+      const next = { ...prev, [name]: value }
+      // Clear dependent fields when parent changes
+      const allFields = [...commonFields, ...typeConfig.fields]
+      allFields.forEach(f => {
+        if (f.type === 'street' && f.cityField === name) {
+          next[f.name] = ''
+        }
+        if (f.type === 'dependentSearchable' && f.parentField === name) {
+          next[f.name] = ''
+        }
+      })
+      return next
+    })
+
+    // If this is a city field, fetch streets for the selected city
+    const allFields = [...commonFields, ...typeConfig.fields]
+    const isCity = allFields.some(f => f.name === name && f.type === 'city')
+    if (isCity && value && !streetsByCity[value]) {
+      fetch(`/api/streets?city=${encodeURIComponent(value)}`)
+        .then(r => r.json())
+        .then(streets => setStreetsByCity(prev => ({ ...prev, [value]: streets })))
+        .catch(() => {})
+    }
   }
 
   const handleFileSelect = (e) => {
@@ -70,6 +115,48 @@ export default function ClaimForm({ type, initialData, claimId }) {
 
   const renderField = (field) => {
     const baseClass = "w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+
+    if (field.type === 'city') {
+      return (
+        <SearchableSelect
+          options={cities}
+          value={formData[field.name] || ''}
+          onChange={(val) => handleChange(field.name, val)}
+          required={field.required}
+          placeholder="הקלד שם עיר..."
+        />
+      )
+    }
+
+    if (field.type === 'street') {
+      const cityValue = formData[field.cityField] || ''
+      const streets = streetsByCity[cityValue] || []
+      return (
+        <SearchableSelect
+          options={streets}
+          value={formData[field.name] || ''}
+          onChange={(val) => handleChange(field.name, val)}
+          required={field.required}
+          placeholder={cityValue ? 'הקלד שם רחוב...' : 'יש לבחור עיר תחילה'}
+          disabled={!cityValue}
+        />
+      )
+    }
+
+    if (field.type === 'dependentSearchable') {
+      const parentValue = formData[field.parentField] || ''
+      const options = field.optionsMap[parentValue] || []
+      return (
+        <SearchableSelect
+          options={options}
+          value={formData[field.name] || ''}
+          onChange={(val) => handleChange(field.name, val)}
+          required={field.required}
+          placeholder={parentValue ? 'בחר...' : 'יש לבחור קודם'}
+          disabled={!parentValue}
+        />
+      )
+    }
 
     if (field.type === 'searchable') {
       return (
@@ -123,7 +210,7 @@ export default function ClaimForm({ type, initialData, claimId }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Personal info */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
         <div className="bg-gradient-to-l from-blue-50 to-slate-50 px-6 py-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -143,7 +230,7 @@ export default function ClaimForm({ type, initialData, claimId }) {
       </div>
 
       {/* Type-specific fields */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
         <div className="bg-gradient-to-l from-blue-50 to-slate-50 px-6 py-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <span className="text-xl">{typeConfig.icon}</span>
@@ -163,7 +250,7 @@ export default function ClaimForm({ type, initialData, claimId }) {
       </div>
 
       {/* Photo upload */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
         <div className="bg-gradient-to-l from-blue-50 to-slate-50 px-6 py-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -202,7 +289,7 @@ export default function ClaimForm({ type, initialData, claimId }) {
 
       {/* Status (edit only) */}
       {isEdit && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
           <div className="bg-gradient-to-l from-blue-50 to-slate-50 px-6 py-4 border-b border-slate-200">
             <h3 className="text-lg font-bold text-slate-800">סטטוס תביעה</h3>
           </div>
